@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    tools:context="sms.demo.com.smsdemo.ChangeBaseUrlScreen">
+
+    <EditText
+        android:id="@+id/et_base_url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter base api url"
+        android:inputType="text" />
+
+    <Button
+        android:id="@+id/btn_base_url"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:layout_gravity="center_horizontal"
+        android:text="Submit" />
+
+</LinearLayout>
