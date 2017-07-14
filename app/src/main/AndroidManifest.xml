@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS"/>
+    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
 
     <application
         android:allowBackup="true"
@@ -61,7 +61,8 @@
             </intent-filter>
         </receiver>
         -->
-        <activity android:name=".ChangeBaseUrlScreen"></activity>
+        <activity android:name=".ChangeBaseUrlScreen" />
+
     </application>
 
 </manifest>

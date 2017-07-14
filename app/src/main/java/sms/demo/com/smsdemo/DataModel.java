@@ -11,5 +11,6 @@ public class DataModel {
     String method;
     String format;
     String reply;
+    int time;
 
 }

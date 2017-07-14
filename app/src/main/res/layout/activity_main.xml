@@ -19,6 +19,13 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="@string/start" />
+    <Button
+        android:id="@+id/btn_skip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+
+        android:text="Skip" />
+
 
     <Button
         android:id="@+id/btn_lock"
@@ -33,5 +40,15 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal|bottom"
         android:layout_marginBottom="100dp" />
+
+    <TextView
+        android:id="@+id/textViewWaiting"
+
+        android:layout_width="wrap_content"
+        android:visibility="invisible"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="60dp"
+        android:text="Waiting for Reply" />
 
 </FrameLayout>

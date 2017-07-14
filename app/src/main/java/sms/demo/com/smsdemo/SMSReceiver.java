@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.support.v4.content.LocalBroadcastManager;
 import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
 
@@ -37,13 +38,14 @@ public class SMSReceiver extends BroadcastReceiver {
                     String deviceId = new SharedPrefHelper(context).getStringKey(ApiInterface.DEVICE_ID);
                     //   Call<DataModel> call = apiService.getReqStatus("getQueue", "airtel8675413483", "lorem341", "1234567890");
                     if (!ApiClient.isBaseUrlEmpty(context)) {
-                        if(ApiClient.getClient(context)!=null)
-                        apiInterface = ApiClient.getClient(context).create(ApiInterface.class);
+                        if (ApiClient.getClient(context) != null)
+                            apiInterface = ApiClient.getClient(context).create(ApiInterface.class);
                     }
                     if (apiInterface != null) {
 
                         Call<Void> call = apiInterface.sendIncomingSms("newMessage", deviceId, Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID), message, ApiClient.genRandomNumber());
 
+                        LocalBroadcastManager.getInstance(context).sendBroadcast(new Intent("speedExceeded"));
                         call.enqueue(new Callback<Void>() {
                             @Override
                             public void onResponse(Call<Void> call, Response<Void> response) {

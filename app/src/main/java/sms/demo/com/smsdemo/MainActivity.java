@@ -1,5 +1,7 @@
 package sms.demo.com.smsdemo;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
@@ -7,6 +9,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
 import android.support.v4.app.DialogFragment;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -22,17 +25,18 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener, USSDInterface, LockDialogFragment.LockDialogListener ,OutgoingCallResponseInterface{
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, USSDInterface, LockDialogFragment.LockDialogListener, OutgoingCallResponseInterface {
 
 
+    ApiInterface apiInterface;
     Button btnSettings, btnStartStop;
     ApiInterface apiService;
     private String id = "";
     OutgoingCallReceiver outgoingCallReceiver;
     // Create the Handler object (on the main thread by default)
-    Handler handler;
+    Handler handler, handlerSecond;
     // Define the code block to be executed
-    private Runnable runnableCode;
+    private Runnable runnableCode, runnableCodeSecond;
     USSDReceiver ussdReceiver;
 
     // Start the initial runnable task by posting through the handler
@@ -44,9 +48,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onStart() {
         super.onStart();
-        if(!ApiClient.isBaseUrlEmpty(this)) {
-            if(ApiClient.getClient(this)!=null)
-            apiService = ApiClient.getClient(this).create(ApiInterface.class);
+        if (!ApiClient.isBaseUrlEmpty(this)) {
+            if (ApiClient.getClient(this) != null)
+                apiService = ApiClient.getClient(this).create(ApiInterface.class);
         }
     }
 
@@ -55,7 +59,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Bugsnag.init(this);
-        ((TextView) findViewById(R.id.tv_device_id)).setText("DEVICE ID: " +  Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID));
+        findViewById(R.id.btn_skip).setOnClickListener(this);
+        ((TextView) findViewById(R.id.tv_device_id)).setText("DEVICE ID: " + Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID));
         Window window = this.getWindow();
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
@@ -67,6 +72,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         registerReceiver(outgoingCallReceiver, new IntentFilter(Intent.ACTION_NEW_OUTGOING_CALL));
 
 
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+                new MyReceiver(), new IntentFilter("speedExceeded"));
+
         btnSettings = (Button) findViewById(R.id.btn_settings);
         btnStartStop = (Button) findViewById(R.id.btn_start_stop);
         btnSettings.setOnClickListener(this);
@@ -75,67 +83,101 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         btnStartStop.setOnClickListener(this);
         findViewById(R.id.btn_lock).setOnClickListener(this);
-        if(!ApiClient.isBaseUrlEmpty(this)){
-            if(ApiClient.getClient(this)!=null)
-            apiService = ApiClient.getClient(this).create(ApiInterface.class);
+        if (!ApiClient.isBaseUrlEmpty(this)) {
+            if (ApiClient.getClient(this) != null)
+                apiService = ApiClient.getClient(this).create(ApiInterface.class);
         }
         handler = new Handler();
-
-        runnableCode = new Runnable() {
+        handlerSecond = new Handler();
+        runnableCodeSecond = new Runnable() {
             @Override
             public void run() {
-                if (apiService != null) {
-                    final String deviceId = new SharedPrefHelper(MainActivity.this).getStringKey(ApiInterface.DEVICE_ID);
-                    //  Call<DataModel> call = apiService.getReqStatus("getQueue", "airtel8675413483", "lorem341", "1234567890");
-                    Call<DataModel> call = apiService.getReqStatus("getQueue", deviceId, Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID), ApiClient.genRandomNumber());
+                if (!ApiClient.isBaseUrlEmpty(MainActivity.this)) {
+                    if (ApiClient.getClient(MainActivity.this) != null)
+                        apiInterface = ApiClient.getClient(MainActivity.this).create(ApiInterface.class);
+                }
+                if (apiInterface != null) {
+                    handler.post(runnableCode);
+                    String deviceId = new SharedPrefHelper(MainActivity.this).getStringKey(ApiInterface.DEVICE_ID);
+                    Call<Void> call = apiInterface.sendIncomingSms("newMessage", deviceId, Settings.Secure.getString(MainActivity.this.getContentResolver(), Settings.Secure.ANDROID_ID), "No Reply Message Received", ApiClient.genRandomNumber());
 
-                    call.enqueue(new Callback<DataModel>() {
+                    call.enqueue(new Callback<Void>() {
                         @Override
-                        public void onResponse(Call<DataModel> call, Response<DataModel> response) {
-                            //Log.i("Response Success", response.body().toString());
-                            if(response.body()==null){
-                                return;
-                            }
-
-                            if (response.body().method.equals("ussd")) {
-                                id = response.body().id;
-                                dialNumber(response.body().format);
-                            } else if (response.body().method.equals("ussd_multi")) {
-                                dialNumber(response.body().format);
-                                String[] replies = response.body().reply.split(",");
-                            } else {
-
-
-                                new SmsHelper(MainActivity.this).sendSMS(response.body().to, response.body().message);
-                                apiService.sendSentMessageStatus("rechargeStatusUpdate", deviceId, Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID), response.body().id, "Message Sent", ApiClient.genRandomNumber()).enqueue(new Callback<DataModel>() {
-                                    @Override
-                                    public void onResponse(Call<DataModel> call, Response<DataModel> response) {
-                                        Log.i("Response Success", response.body().toString());
-                                    }
-
-                                    @Override
-                                    public void onFailure(Call<DataModel> call, Throwable t) {
-                                        Log.i("Response Success", t.toString());
-                                    }
-                                });
-                            }
-
-
+                        public void onResponse(Call<Void> call, Response<Void> response) {
+                            // Log.i("Response MessageSuccess", response.body().toString());
+                            //new SmsHelper(MainActivity.this).sendSMS(response.body().to,response.body().message);
                         }
 
                         @Override
-                        public void onFailure(Call<DataModel> call, Throwable t) {
-                            Log.i("Response Failure", t.toString());
-                            Toast.makeText(MainActivity.this, "Running", Toast.LENGTH_SHORT).show();
+                        public void onFailure(Call<Void> call, Throwable t) {
+                            //     Log.i("Response MessageFailure", t.toString());
+                            //     Toast.makeText(context, "Not a valid device", Toast.LENGTH_SHORT).show();
                         }
                     });
-                    // Do something here on the main thread
-                    Log.d("Handlers", "Called on main thread");
-                    // Repeat this the same runnable code block again another 5 seconds
-                    handler.postDelayed(runnableCode, 7000);
                 }
             }
         };
+
+
+        runnableCode = new
+                Runnable() {
+                    @Override
+                    public void run() {
+                        if (apiService != null) {
+                            final String deviceId = new SharedPrefHelper(MainActivity.this).getStringKey(ApiInterface.DEVICE_ID);
+                            //  Call<DataModel> call = apiService.getReqStatus("getQueue", "airtel8675413483", "lorem341", "1234567890");
+                            Call<DataModel> call = apiService.getReqStatus("getQueue", deviceId, Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID), ApiClient.genRandomNumber());
+
+                            call.enqueue(new Callback<DataModel>() {
+                                @Override
+                                public void onResponse(Call<DataModel> call, Response<DataModel> response) {
+                                    //Log.i("Response Success", response.body().toString());
+                                    if (response.body() == null) {
+                                        return;
+                                    }
+
+                                    if (response.body().method.equals("ussd")) {
+                                        handler.postDelayed(runnableCode, 7000);
+                                        id = response.body().id;
+                                        dialNumber(response.body().format);
+                                    } else if (response.body().method.equals("ussd_multi")) {
+                                        handler.postDelayed(runnableCode, 7000);
+                                        dialNumber(response.body().format);
+                                        String[] replies = response.body().reply.split(",");
+                                    } else {
+//                                        handler.postDelayed(runnableCode, response.body().time == 0 ? 7000 : response.body().time * 1000);
+                                        findViewById(R.id.textViewWaiting).setVisibility(View.VISIBLE);
+                                        handlerSecond.postDelayed(runnableCodeSecond,response.body().time == 0 ? 7000 : response.body().time * 1000);
+
+                                        new SmsHelper(MainActivity.this).sendSMS(response.body().to, response.body().message);
+                                        apiService.sendSentMessageStatus("rechargeStatusUpdate", deviceId, Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID), response.body().id, "Message Sent", ApiClient.genRandomNumber()).enqueue(new Callback<DataModel>() {
+                                            @Override
+                                            public void onResponse(Call<DataModel> call, Response<DataModel> response) {
+                                                Log.i("Response Success", response.body().toString());
+                                            }
+
+                                            @Override
+                                            public void onFailure(Call<DataModel> call, Throwable t) {
+                                                Log.i("Response Success", t.toString());
+                                            }
+                                        });
+                                    }
+
+
+                                }
+
+                                @Override
+                                public void onFailure(Call<DataModel> call, Throwable t) {
+                                    Log.i("Response Failure", t.toString());
+                                    Toast.makeText(MainActivity.this, "Running", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+
+                        }
+                    }
+                }
+
+        ;
 
     }
 
@@ -146,11 +188,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 startActivity(new Intent(this, DeviceIdActivity.class));
                 break;
             case R.id.btn_start_stop:
-                if(ApiClient.isBaseUrlEmpty(this)){
-                   return;
-                }else{
-                    if(ApiClient.getClient(this)!=null)
-                    apiService = ApiClient.getClient(this).create(ApiInterface.class);
+                if (ApiClient.isBaseUrlEmpty(this)) {
+                    return;
+                } else {
+                    if (ApiClient.getClient(this) != null)
+                        apiService = ApiClient.getClient(this).create(ApiInterface.class);
                 }
 
                 if (!new SharedPrefHelper(this).getStringKey(ApiInterface.DEVICE_ID).equalsIgnoreCase("")) {
@@ -169,6 +211,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 break;
             case R.id.btn_lock:
                 showNoticeDialog();
+                break;
+            case R.id.btn_skip:
+                handler.post(runnableCode);
+                handlerSecond.removeCallbacks(runnableCodeSecond);
+                findViewById(R.id.textViewWaiting).setVisibility(View.INVISIBLE);
                 break;
 
         }
@@ -192,7 +239,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void parseMessage(String text) {
-        if(apiService==null){
+        if (apiService == null) {
             return;
         }
         String deviceId = new SharedPrefHelper(this).getStringKey(ApiInterface.DEVICE_ID);
@@ -234,5 +281,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void parseCallResponse(String text) {
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
 
+    }
+
+    private class MyReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            //calls getqueue for another recharge
+            handler.post(runnableCode);
+            handlerSecond.removeCallbacks(runnableCodeSecond);
+            findViewById(R.id.textViewWaiting).setVisibility(View.INVISIBLE);
+        }
     }
 }
